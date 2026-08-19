@@ -6,7 +6,7 @@ const pluginName = "B-Grave";
 ll.registerPlugin(
     /* name */ pluginName,
     /* introduction */ `${pluginName} - 全新重构版本墓碑插件`,
-    /* version */[2, 0, 1, Version.Release],
+    /* version */[2, 0, 2, Version.Release],
     /* otherInformation */{ "发布地址": "https://www.minebbs.com/resources/authors/forget.132107/" }
 );
 
@@ -1872,9 +1872,9 @@ function breakGrave(player, block) {
                             graveEntity = ent;
                             try {
                                 const entTags = ent.getAllTags ? ent.getAllTags() : [];
-                                logger.warn(`[breakGrave][key-uid] 玩家 ${player.realName} 使用钥匙 UID=${uid} 定位到实体 -> uniqueId:${ent.uniqueId} runtimeId:${ent.runtimeId} name:${ent.name} type:${ent.type} pos:${ent.pos} blockPos:${ent.blockPos} tags:${JSON.stringify(entTags)} 目标方块:${x},${y},${z}`);
+                                logger.debug(`[breakGrave][key-uid] 玩家 ${player.realName} 使用钥匙 UID=${uid} 定位到实体 -> uniqueId:${ent.uniqueId} runtimeId:${ent.runtimeId} name:${ent.name} type:${ent.type} pos:${ent.pos} blockPos:${ent.blockPos} tags:${JSON.stringify(entTags)} 目标方块:${x},${y},${z}`);
                             } catch (e) {
-                                logger.warn(`[breakGrave][key-uid] 玩家 ${player.realName} 使用钥匙 UID=${uid} 定位到实体 (部分信息获取失败)`);
+                                logger.debug(`[breakGrave][key-uid] 玩家 ${player.realName} 使用钥匙 UID=${uid} 定位到实体 (部分信息获取失败)`);
                             }
                         }
                     }

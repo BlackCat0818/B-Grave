@@ -2,7 +2,7 @@
     "entry": "B-Grave.js",
     "name": "B-Grave",
     "type": "lse-quickjs",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "author": "BlackCat",
     "description": "B-Grave - 全新重构版本墓碑插件",
     "extraInfo": {
