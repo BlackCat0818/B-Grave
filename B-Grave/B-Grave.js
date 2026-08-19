@@ -10,7 +10,7 @@ ll.registerPlugin(
     /* otherInformation */{ "发布地址": "https://www.minebbs.com/resources/authors/forget.132107/" }
 );
 
-const debugMode = false; // 调试模式，生产环境下不推荐开启
+const debugMode = true; // 调试模式，生产环境下不推荐开启
 const devMode = false; // 开发者模式，生产环境下不推荐开启
 const testersList = [ // 测试人员玩家名称列表
     "Steve",
@@ -1685,8 +1685,9 @@ mc.listen("onDestroyBlock", (player, block) => {
                         return false;
                     }
                 }
-                //mc.broadcast(`[内部] 玩家挖掘了方块 ${block.name} ${block.type} ${block.pos}`);
-
+                // 玩家直接破坏了墓碑方块
+                mc.broadcast(`§c[内部] onDestroyBlock 发生错误，玩家挖掘了墓碑方块 ${block.name} ${block.type} ${block.pos}`);
+                logger.fatal(`§c[内部] onDestroyBlock 发生错误，玩家挖掘了墓碑方块 ${block.name} ${block.type} ${block.pos}`);
             } else {
                 // 墓碑实体不存在，已将墓碑方块设置为不可销毁
                 setGraveBlockDestructible(block, 0);
