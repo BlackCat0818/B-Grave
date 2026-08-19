@@ -1415,8 +1415,18 @@ function playerDie(player) {
 
             //const graveInventory = graveEntity.getContainer(); // 不知道为什么Addon的getContainer始终为false，可能是LSE的问题
 
+            const graveNbt = graveEntity.getNbt();
+            if (!graveNbt) {
+                logger.error(`尝试获取墓碑实体NBT失败: ${graveNbt}`);
+            }
+
             logger.debug(`尝试设置墓碑实体名称：${setGraveEntityNameSuccess}`);
-            logger.debug(`设置后的墓碑实体名称：${graveEntity.getNbt().getData("CustomName")}`);
+
+            if (graveNbt) {
+                logger.debug(`设置后的墓碑实体名称：${graveNbt.getData("CustomName")}`);
+            } else {
+                logger.debug(`设置后的墓碑实体名称：无法获取NBT`);
+            }
 
             // 给墓碑实体添加tag标签（玩家xuid）
             graveEntity.addTag(player.xuid);
