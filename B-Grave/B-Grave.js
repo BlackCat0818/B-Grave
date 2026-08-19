@@ -1694,7 +1694,7 @@ mc.listen("onDestroyBlock", (player, block) => {
 
                 // 打印调试信息和错误日志
                 if (debugMode) {
-                    mc.broadcast(`[onDestroyBlock] 玩家挖掘了方块 ${block.name} ${block.type} ${block.pos} | graveEntity : ${graveEntity}`);
+                    mc.broadcast(`[onDestroyBlock] 玩家 ${player.realName} 挖掘了方块 ${block.name} ${block.type} ${block.pos} | graveEntity : ${graveEntity}`);
                     mc.broadcast(`[onDestroyBlock] ${block.pos} 处的墓碑实体不存在（可能发生偏移？）已将墓碑方块设置为不可销毁，如遇墓碑方块仍被破坏请检查控制台和代码！`);
                     logger.fatal(`[onDestroyBlock] entities.some(entity => entity.type === graveEntityTypeName) : ${entities.some(entity => entity.type === graveEntityTypeName)}`);
                     logger.fatal(`[onDestroyBlock] entities.length === 1 : ${entities.length === 1} | entities.length : ${entities.length}`);
