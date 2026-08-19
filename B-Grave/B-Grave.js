@@ -1489,9 +1489,12 @@ function playerDie(player) {
                         `§r§9死亡地点: §c${x - 0.5}, ${y}, ${z - 0.5}`,
                         `§r§8${pos.dim}`
                     ];*/
+
+                    // 在钥匙中写入墓碑位置、维度和实体 uniqueId，便于后续通过 mc.getEntity(uid) 精确获取实体
                     const newLore = [
                         `§r§9墓碑位置: §c${newX}, ${newY}, ${newZ}`,
-                        `§r§8${pos.dim}`
+                        `§r§8${pos.dim}`,
+                        `§r§7UID: ${graveEntity.uniqueId}`
                     ];
 
                     key.setLore(newLore);
@@ -1569,6 +1572,7 @@ mc.listen("onUseItemOn", (player, item, block, side, pos) => {
     // windows设备玩家防抖...
 
     if (graveBlockTypeNames.includes(block.type)) breakGrave(player, block);
+    //logger.warn(`onUseItemOn 触发.`);
 });
 
 // 玩家左键（攻击）墓碑方块
@@ -1585,6 +1589,7 @@ mc.listen("onStartDestroyBlock", (player, block) => {
     if (player.isSimulatedPlayer()) return;
     if (graveBlockTypeNames.includes(block.type)) breakGrave(player, block);
     //logger.debug(`onStartDestroyBlock 触发.`);
+    //logger.warn(`onStartDestroyBlock 触发.`);
 });
 
 mc.listen("onDestroyBlock", (player, block) => {
@@ -1834,26 +1839,66 @@ function breakGrave(player, block) {
         const x = pos.x, y = pos.y, z = pos.z;
         const dimid = pos.dimid;
 
-        const /**@type {Array<Entity,Entity,...>} 所有墓碑实体的数组*/entities = mc.getEntities(pos).filter(en => en && en.type === graveEntityTypeName);
+        // 优先通过附近实体获取（按方块位置）；若未找到或不唯一，则回退到全局实体列表按 blockPos 精确匹配
+        let entities = mc.getEntities(pos).filter(en => en && en.type === graveEntityTypeName);
+        if (!entities || entities.length !== 1) {
+            entities = mc.getAllEntities().filter(en => {
+                try {
+                    return en && en.type === graveEntityTypeName && en.blockPos && en.blockPos.x === x && en.blockPos.y === y && en.blockPos.z === z && en.blockPos.dimid === dimid;
+                } catch (e) {
+                    return false;
+                }
+            });
+        }
 
         const mainHandItem = player.getHand();
         const offHandItem = player.getOffHand();
 
         // 检查主手或副手是否为钥匙
-        const graveKey = [mainHandItem, offHandItem].find(item =>
-            !item.isNull() && item.type === graveKeyTypeName
-        );
+        const graveKey = [mainHandItem, offHandItem].find(item => !item.isNull() && item.type === graveKeyTypeName);
 
-        const graveEntity = entities.length === 1 ? entities[0] : false;
+        // 优先尝试使用钥匙内记录的 uniqueId 精确获取实体
+        let graveEntity = false;
+        if (graveKey) {
+            try {
+                const lore = graveKey.lore || [];
+                const uidLine = lore.find(l => typeof l === 'string' && l.includes('UID:'));
+                if (uidLine) {
+                    const m = uidLine.match(/UID[:\s]*([\-0-9]+)/);
+                    if (m) {
+                        const uid = Number(m[1]);
+                        const ent = mc.getEntity(uid);
+                        if (ent && ent.type === graveEntityTypeName) {
+                            graveEntity = ent;
+                            try {
+                                const entTags = ent.getAllTags ? ent.getAllTags() : [];
+                                logger.warn(`[breakGrave][key-uid] 玩家 ${player.realName} 使用钥匙 UID=${uid} 定位到实体 -> uniqueId:${ent.uniqueId} runtimeId:${ent.runtimeId} name:${ent.name} type:${ent.type} pos:${ent.pos} blockPos:${ent.blockPos} tags:${JSON.stringify(entTags)} 目标方块:${x},${y},${z}`);
+                            } catch (e) {
+                                logger.warn(`[breakGrave][key-uid] 玩家 ${player.realName} 使用钥匙 UID=${uid} 定位到实体 (部分信息获取失败)`);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                // 忽略解析错误，继续回退查找
+            }
+        }
+
+        // 若未通过钥匙定位到实体，则使用附近/全局回退逻辑
+        if (!graveEntity) {
+            graveEntity = entities && entities.length >= 1 ? entities[0] : false;
+        }
 
         if (graveEntity) {
             const graveEntityAllTags = graveEntity.getAllTags() || [];
-            const graveEntityTag = graveEntityAllTags.length === 1 ? graveEntityAllTags[0] : false;
+            // 查找可能的所有者 tag（xuid），实体可能含有多个 tag，因此使用查找而非长度判断
+            const graveEntityOwnerTag = graveEntityAllTags.find(t => typeof t === 'string' && t === String(t));
+            const hasPlayerXuidTag = graveEntityAllTags.some(tag => tag === player.xuid);
 
             if (player.isOP() && admins.includes(player.realName)) {
 
-                if (graveEntityTag && player.xuid !== graveEntityTag) {
-                    const owner = data.xuid2name(graveEntityTag);
+                if (graveEntityOwnerTag && player.xuid !== graveEntityOwnerTag) {
+                    const owner = data.xuid2name(graveEntityOwnerTag);
                     logger.warn(`[breakGrave] 墓碑管理员 ${player.realName} 挖掘了 ${owner} 的墓碑！`);
                 } else {
                     logger.warn(`[breakGrave] 墓碑管理员 ${player.realName} 挖掘了 自己 的墓碑：${block.pos}！`);
