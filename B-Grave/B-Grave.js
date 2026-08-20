@@ -172,6 +172,16 @@ const graveManager = {
     }
 };
 
+function sendGroupMsg(msg) {
+    if (ll.hasExported("SparkAPIEx", "sendGroupMsg")) {
+        const groupId = ll.imports("SparkAPIEx", "getMainGroup")();
+        ll.imports("SparkAPIEx", "sendGroupMsg")(groupId, msg); // 导入 sparkbridge API
+        return true;
+    } else {
+        return false;
+    }
+}
+
 /**
  * 获取配置文件中的某个键的值
  * @param {string} key 
@@ -1398,8 +1408,10 @@ function playerDie(player) {
 
 
             if (!graveEntity) {
+                mc.runcmd(`spawncap`);
                 mc.broadcast(`尝试在 ${spawnPos} 处生成墓碑实体 ${graveEntityTypeName} 失败：${graveEntity}，请联系服务器管理员！`);
                 logger.fatal(`尝试在 ${spawnPos} 处生成墓碑实体 ${graveEntityTypeName} 失败：${graveEntity}`);
+                sendGroupMsg(`尝试在 ${spawnPos} 处生成墓碑实体 ${graveEntityTypeName} 失败：${graveEntity}，请联系服务器管理员！`);
                 return;
             };
 
