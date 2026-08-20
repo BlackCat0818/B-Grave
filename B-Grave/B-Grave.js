@@ -10,7 +10,7 @@ ll.registerPlugin(
     /* otherInformation */{ "发布地址": "https://www.minebbs.com/resources/authors/forget.132107/" }
 );
 
-const debugMode = true; // 调试模式，生产环境下不推荐开启
+const debugMode = false; // 调试模式，生产环境下不推荐开启
 const devMode = false; // 开发者模式，生产环境下不推荐开启
 const testersList = [ // 测试人员玩家名称列表
     "Steve",
