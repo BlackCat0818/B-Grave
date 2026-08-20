@@ -1,5 +1,10 @@
 待办：
-- [ ] 使用部分 LSE 0.19.1 新增的API：en.setCustomName(name)优化代码
+- [ ] 使用部分 LSE 0.19.1 新增的API优化代码
+ - en.setCustomName(name)
+ - mc.loadMob(nbt,pos)
+ - mc.loadMob(nbt,x,y,z,dimid)
+
+
 - [ ] 凋灵和末影龙破坏墓碑方块问题
 - [ ] 跨维度传送时价格翻倍时，翻多少倍支持配置文件自定义（不同维度传送到不同维度时翻倍不同）
 - [ ] 将 allowChangeDimTp、tpGraveConsumesKey、dropGraveBlock 移动到 dimensionConfig 中
