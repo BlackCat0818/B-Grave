@@ -1504,10 +1504,14 @@ function playerDie(player) {
                     ];*/
 
                     // 在钥匙中写入墓碑位置、维度和实体 uniqueId，便于后续通过 mc.getEntity(uid) 精确获取实体
+                    // 对 uniqueId 做防护：优先使用 uniqueId，无则回退到 runtimeId，再无则写入 unknown
+                    const uidSafe = (typeof graveEntity !== 'undefined' && graveEntity !== null && typeof graveEntity.uniqueId !== 'undefined' && graveEntity.uniqueId !== null)
+                        ? graveEntity.uniqueId
+                        : (typeof graveEntity !== 'undefined' && graveEntity !== null && typeof graveEntity.runtimeId !== 'undefined' ? graveEntity.runtimeId : "unknown");
                     const newLore = [
                         `§r§9墓碑位置: §c${newX}, ${newY}, ${newZ}`,
                         `§r§8${pos.dim}`,
-                        `§r§7UID: ${graveEntity.uniqueId}`
+                        `§r§7UID: ${uidSafe}`
                     ];
 
                     key.setLore(newLore);
@@ -1871,25 +1875,48 @@ function breakGrave(player, block) {
         // 检查主手或副手是否为钥匙
         const graveKey = [mainHandItem, offHandItem].find(item => !item.isNull() && item.type === graveKeyTypeName);
 
-        // 优先尝试使用钥匙内记录的 uniqueId 精确获取实体
+        // 优先尝试使用钥匙内记录的 UID 精确获取实体（支持 uniqueId 或 runtimeId，兼容字符串）
         let graveEntity = false;
         if (graveKey) {
             try {
                 const lore = graveKey.lore || [];
                 const uidLine = lore.find(l => typeof l === 'string' && l.includes('UID:'));
                 if (uidLine) {
-                    const m = uidLine.match(/UID[:\s]*([\-0-9]+)/);
+                    const m = uidLine.match(/UID[:\s]*([^\s]+)/);
                     if (m) {
-                        const uid = Number(m[1]);
-                        const ent = mc.getEntity(uid);
+                        const uidStr = m[1];
+                        let ent = null;
+
+                        // 尝试按数字 uid 搜索
+                        const uidNum = Number(uidStr);
+                        if (Number.isFinite(uidNum)) {
+                            ent = mc.getEntity(uidNum);
+                        }
+
+                        // 如果按数字未找到，尝试按原始字符串或 runtimeId
+                        if (!ent) {
+                            try {
+                                ent = mc.getEntity(uidStr);
+                            } catch (e) {
+                                // 有些环境不支持字符串查询，忽略
+                            }
+                        }
+
+                        if (!ent && typeof uidStr === 'string' && /^[0-9]+$/.test(uidStr)) {
+                            // 兜底尝试 Number 转换（历史上部分 API 返回字符串形式的 id）
+                            ent = mc.getEntity(Number(uidStr));
+                        }
+
                         if (ent && ent.type === graveEntityTypeName) {
                             graveEntity = ent;
                             try {
                                 const entTags = ent.getAllTags ? ent.getAllTags() : [];
-                                logger.debug(`[breakGrave][key-uid] 玩家 ${player.realName} 使用钥匙 UID=${uid} 定位到实体 -> uniqueId:${ent.uniqueId} runtimeId:${ent.runtimeId} name:${ent.name} type:${ent.type} pos:${ent.pos} blockPos:${ent.blockPos} tags:${JSON.stringify(entTags)} 目标方块:${x},${y},${z}`);
+                                logger.debug(`[breakGrave][key-uid] 玩家 ${player.realName} 使用钥匙 UID=${uidStr} 定位到实体 -> uniqueId:${ent.uniqueId} runtimeId:${ent.runtimeId} name:${ent.name} type:${ent.type} pos:${ent.pos} blockPos:${ent.blockPos} tags:${JSON.stringify(entTags)} 目标方块:${x},${y},${z}`);
                             } catch (e) {
-                                logger.debug(`[breakGrave][key-uid] 玩家 ${player.realName} 使用钥匙 UID=${uid} 定位到实体 (部分信息获取失败)`);
+                                logger.debug(`[breakGrave][key-uid] 玩家 ${player.realName} 使用钥匙 UID=${uidStr} 定位到实体 (部分信息获取失败)`);
                             }
+                        } else if (uidLine) {
+                            logger.debug(`[breakGrave][key-uid] 尝试使用钥匙中的 UID=${uidStr} 定位实体失败，稍后回退为附近/全局查找`);
                         }
                     }
                 }
@@ -2089,9 +2116,23 @@ function dropItemsFromGraveEntity(graveEntity, pos = graveEntity.pos) {
  * @returns {boolean} 是否成功设置
  */
 function setGraveInventory(playerInventory, graveEntity) {
+    if (!graveEntity) {
+        logger.error("setGraveInventory: graveEntity 为 null 或 undefined，跳过设置墓碑物品栏。");
+        return false;
+    }
+
     // 获取墓碑实体的NBT
-    const graveNbt = graveEntity.getNbt();
-    if (!graveNbt) return false;
+    let graveNbt;
+    try {
+        graveNbt = graveEntity.getNbt();
+    } catch (e) {
+        logger.error("setGraveInventory: 获取墓碑实体 NBT 时抛出异常：", e);
+        return false;
+    }
+    if (!graveNbt) {
+        logger.error("setGraveInventory: 获取墓碑实体NBT失败: " + graveNbt);
+        return false;
+    }
 
     // 创建新的 ChestItems 列表 (NbtList)
     const chestItems = new NbtList([]);
@@ -2148,7 +2189,12 @@ function setGraveInventory(playerInventory, graveEntity) {
     graveNbt.setTag("ChestItems", chestItems);
 
     // 将修改后的NBT写回实体
-    return graveEntity.setNbt(graveNbt);
+    try {
+        return graveEntity.setNbt(graveNbt);
+    } catch (e) {
+        logger.error("setGraveInventory: 写回墓碑NBT失败：", e);
+        return false;
+    }
 }
 
 /**
@@ -2158,13 +2204,27 @@ function setGraveInventory(playerInventory, graveEntity) {
  * @returns {boolean} 是否成功修改
  */
 function setGraveModel(graveEntity, modelId) {
+    if (!graveEntity) {
+        logger.error("setGraveModel: graveEntity 为 null 或 undefined，跳过设置模型。");
+        return false;
+    }
+
     // 获取墓碑实体的NBT
-    const graveNbt = graveEntity.getNbt();
-    if (!graveNbt) return false;
+    let graveNbt;
+    try {
+        graveNbt = graveEntity.getNbt();
+    } catch (e) {
+        logger.error("setGraveModel: 获取墓碑实体 NBT 时抛出异常：", e);
+        return false;
+    }
+    if (!graveNbt) {
+        logger.error("setGraveModel: 获取墓碑实体NBT失败: " + graveNbt);
+        return false;
+    }
 
     // 获取或创建 properties 标签
     let propertiesTag = graveNbt.getTag("properties");
-    if (!propertiesTag /*|| propertiesTag.getType() !== NBT.Compound*/) {
+    if (!propertiesTag) {
         propertiesTag = new NbtCompound({});
     }
 
@@ -2175,7 +2235,12 @@ function setGraveModel(graveEntity, modelId) {
     graveNbt.setTag("properties", propertiesTag);
 
     // 将修改后的NBT写回实体
-    return graveEntity.setNbt(graveNbt);
+    try {
+        return graveEntity.setNbt(graveNbt);
+    } catch (e) {
+        logger.error("setGraveModel: 写回墓碑NBT失败：", e);
+        return false;
+    }
 }
 
 /**
@@ -2441,9 +2506,23 @@ function getItemLockMode(item) {
  * @returns {boolean} 是否成功设置
  */
 function setGraveEntityName(graveEntity, name) {
+    if (!graveEntity) {
+        logger.error("setGraveEntityName: graveEntity 为 null 或 undefined，跳过设置名称。");
+        return false;
+    }
+
     // 获取墓碑实体的完整NBT
-    const graveNbt = graveEntity.getNbt();
-    if (!graveNbt) return false;
+    let graveNbt;
+    try {
+        graveNbt = graveEntity.getNbt();
+    } catch (e) {
+        logger.error("setGraveEntityName: 获取墓碑实体 NBT 时抛出异常：", e);
+        return false;
+    }
+    if (!graveNbt) {
+        logger.error("setGraveEntityName: 获取墓碑实体NBT失败: " + graveNbt);
+        return false;
+    }
 
     // 设置新的CustomName（无论是否存在）
     graveNbt.setString("CustomName", name);
@@ -2452,7 +2531,12 @@ function setGraveEntityName(graveEntity, name) {
     graveNbt.setByte("CustomNameVisible", 1);
 
     // 将修改后的完整NBT写回实体
-    return graveEntity.setNbt(graveNbt);
+    try {
+        return graveEntity.setNbt(graveNbt);
+    } catch (e) {
+        logger.error("setGraveEntityName: 写回墓碑NBT失败：", e);
+        return false;
+    }
 }
 
 /**
